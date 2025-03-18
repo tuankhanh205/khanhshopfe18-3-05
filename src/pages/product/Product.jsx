@@ -82,9 +82,9 @@ const ProductList = () => {
               <th className="py-2 px-2">Hình ảnh</th>
               <th className="py-2 px-2">Tên</th>
               <th className="py-2 px-2">Category</th>
-              <th className="py-2 px-2">Brand</th>
               <th className="py-2 px-2">Mô tả</th>
               <th className="py-2 px-2">Kho</th>
+              <th className="py-2 px-2">trang thai</th>
               <th className="py-2 px-2">Thao tác</th>
             </tr>
           </thead>
@@ -123,9 +123,9 @@ const ProductList = () => {
 
                   <td className="py-2 px-2">{product.name}</td>
                   <td className="py-2 px-2">{product.categoryName}</td>
-                  <td className="py-2 px-2">{product.brandName}</td>
                   <td className="py-2 px-2 truncate max-w-xs">{product.description}</td>
                   <td className="py-2 px-2">{product.stock}</td>
+                  <td className="py-2 px-2">{product.status}</td>
                   <td className="py-2 px-2">
                     <td className="py-2 px-2 flex flex-col md:flex-row gap-1">
                       <a

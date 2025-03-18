@@ -1,42 +1,46 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getBrand } from "../../services/brand/BrandList";
 import { getAllCategory } from "../../services/category/CategoryList";
 import { getSize } from "../../services/size/sizeList";
 import { getColor } from "../../services/color/ColorList";
 import { addProductWithImage } from "../../services/product/ProductList";
 import { useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const AddProduct = () => {
     const [product, setProduct] = useState({
         name: "",
         description: "",
-        brandId: "",
         categoryId: "",
         productDetails: [
             {
                 colorId: "",
                 sizeId: "",
                 price: "",
+                brandId: "",
                 stock: "",
             },
         ],
     });
 
-    const [brands, setBrands] = useState([]);
+    const [brands, setBrand] = useState([]);
     const [categorys, setCategory] = useState([]);
     const [sizes, setSizes] = useState([]);
     const [colors, setColors] = useState([]);
     const [imageFiles, setImageFiles] = useState([]);
+    const [showAddDetailButton, setShowAddDetailButton] = useState(true);
 
-    const navigate = useNavigate(); // Hook để điều hướng
+    const fileInputRef = useRef(null);
+    const navigate = useNavigate();
 
     // Fetching data from API
     const fetchBrands = async () => {
         try {
             const res = await getBrand();
-            setBrands(res.data);
+            setBrand(res.data);
         } catch (error) {
-            console.error("Lỗi khi lấy brands:", error);
+            console.error("Lỗi khi lấy thương hiệu:", error);
         }
     };
 
@@ -89,52 +93,72 @@ const AddProduct = () => {
     const handleImageChange = (e) => {
         const files = e.target.files;
         if (files && files.length > 0) {
-            setImageFiles(Array.from(files));
+            const validFiles = Array.from(files).filter((file) => {
+                const isValidType = file.type.startsWith("image/");
+                const isValidSize = file.size <= 5 * 1024 * 1024; // 5MB
+                return isValidType && isValidSize;
+            });
+
+            if (validFiles.length !== files.length) {
+                toast.error("Một số tệp không hợp lệ. Chỉ chấp nhận ảnh dưới 5MB.");
+            }
+
+            setImageFiles((prevFiles) => [...prevFiles, ...validFiles].slice(0, 5)); // Giới hạn tối đa 5 ảnh
         }
     };
+
+    const removeImage = (index) => {
+        const updatedFiles = imageFiles.filter((file, i) => i !== index);
+        setImageFiles(updatedFiles);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-    
-        // Kiểm tra xem có ít nhất một chi tiết sản phẩm hay không
+
         if (product.productDetails.length === 0) {
-            alert("Vui lòng thêm ít nhất một sản phẩm chi tiết.");
+            toast.error("Vui lòng thêm ít nhất một sản phẩm chi tiết.");
             return;
         }
-    
+
         const validDetails = product.productDetails.every(
             (detail) =>
+                detail.brandId &&
                 detail.colorId &&
                 detail.sizeId &&
                 detail.price > 0 &&
                 detail.stock >= 0
         );
-    
-        if (!product.name || !product.description || !product.brandId || !product.categoryId) {
-            alert("Vui lòng điền đầy đủ thông tin cho sản phẩm.");
+
+        if (!product.name || !product.description || !product.categoryId) {
+            toast.error("Vui lòng điền đầy đủ thông tin cho sản phẩm.");
             return;
         }
-    
+
         if (!validDetails) {
-            alert("Vui lòng điền đầy đủ thông tin cho tất cả các chi tiết sản phẩm.");
+            toast.error("Vui lòng điền đầy đủ thông tin cho tất cả các chi tiết sản phẩm.");
             return;
         }
-    
+
         if (!Array.isArray(imageFiles) || imageFiles.length === 0) {
-            alert("Vui lòng chọn ít nhất một ảnh.");
+            toast.error("Vui lòng chọn ít nhất một ảnh.");
             return;
         }
-    
+
         try {
             const response = await addProductWithImage(product, imageFiles);
             console.log("Sản phẩm đã được thêm:", response.data);
-    
-            // Sau khi thêm sản phẩm thành công, điều hướng về trang sản phẩm
-            navigate("/product"); // Điều hướng về trang /product
+
+            toast.success("Sản phẩm đã được thêm thành công!");
+            setShowAddDetailButton(false);
+
+            setTimeout(() => {
+                navigate("/product");
+            }, 500);
         } catch (error) {
             console.error("Lỗi khi thêm sản phẩm:", error);
+            toast.error("Có lỗi xảy ra khi thêm sản phẩm.");
         }
     };
-    
 
     const addProductDetail = () => {
         setProduct({
@@ -150,22 +174,38 @@ const AddProduct = () => {
         const updatedProductDetails = product.productDetails.filter(
             (detail, i) => i !== index
         );
-    
-        // Kiểm tra nếu không còn chi tiết sản phẩm nào
+
         if (updatedProductDetails.length === 0) {
-            alert("Vui lòng thêm ít nhất một sản phẩm chi tiết.");
+            toast.error("Vui lòng thêm ít nhất một sản phẩm chi tiết.");
         }
-    
+
         setProduct({ ...product, productDetails: updatedProductDetails });
     };
-    
+
+    const triggerFileInput = () => {
+        fileInputRef.current.click();
+    };
+
     return (
         <div className="max-w-4xl mx-auto p-4">
             <h1 className="text-2xl font-bold mb-4">Thêm Sản Phẩm</h1>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Toast Container để hiển thị thông báo */}
+            <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+            />
+
+            <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="bg-white p-4 shadow-md rounded-lg border border-gray-300 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="flex flex-col md:flex-row gap-4">
                         <input
                             type="text"
                             name="name"
@@ -174,19 +214,7 @@ const AddProduct = () => {
                             placeholder="Tên sản phẩm"
                             className="w-full p-2 border border-gray-300 rounded-md"
                         />
-                        <select
-                            name="brandId"
-                            value={product.brandId}
-                            onChange={handleChange}
-                            className="w-full p-2 border border-gray-300 rounded-md"
-                        >
-                            <option value="">Chọn thương hiệu</option>
-                            {brands.map((brand) => (
-                                <option key={brand.id} value={brand.id}>
-                                    {brand.brandName}
-                                </option>
-                            ))}
-                        </select>
+
                         <select
                             name="categoryId"
                             value={product.categoryId}
@@ -208,22 +236,58 @@ const AddProduct = () => {
                         value={product.description}
                         onChange={handleChange}
                         placeholder="Mô tả sản phẩm"
-                        className="w-full p-2 border border-gray-300 rounded-md mt-4"
+                        className="w-full p-2 border border-gray-300 rounded-md"
                     />
 
-                    <input
-                        type="file"
-                        name="file"
-                        multiple
-                        onChange={handleImageChange}
-                        className="mt-4"
-                    />
+                    <div className="mt-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                            Thêm ảnh (tối đa 5 ảnh)
+                        </label>
+                        <button
+                            type="button"
+                            onClick={triggerFileInput}
+                            className="mt-1 px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                        >
+                            Chọn tệp
+                        </button>
+                        <input
+                            type="file"
+                            name="file"
+                            multiple
+                            onChange={handleImageChange}
+                            accept="image/*"
+                            ref={fileInputRef}
+                            className="hidden"
+                        />
+                    </div>
+
+                    {imageFiles.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {imageFiles.map((file, index) => (
+                                <div key={index} className="relative">
+                                    <img
+                                        src={URL.createObjectURL(file)}
+                                        alt={`Preview ${index}`}
+                                        className="w-20 h-20 object-cover rounded-lg shadow-md"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => removeImage(index)}
+                                        className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                                        style={{ transform: "translate(50%, -50%)" }}
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="bg-white p-4 shadow-md rounded-lg border border-gray-300">
                     {product.productDetails.map((detail, index) => (
                         <div key={index} className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex flex-col md:flex-row gap-4">
                                 <select
                                     name={`productDetails.${index}.colorId`}
                                     value={detail.colorId}
@@ -234,6 +298,20 @@ const AddProduct = () => {
                                     {colors.map((color) => (
                                         <option key={color.id} value={color.id}>
                                             {color.colorName}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                <select
+                                    name={`productDetails.${index}.brandId`}
+                                    value={detail.brandId}
+                                    onChange={handleChange}
+                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                >
+                                    <option value="">Chọn thương hiệu</option>
+                                    {brands.map((brand) => (
+                                        <option key={brand.id} value={brand.id}>
+                                            {brand.brandName}
                                         </option>
                                     ))}
                                 </select>
@@ -253,7 +331,7 @@ const AddProduct = () => {
                                 </select>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="flex flex-col md:flex-row gap-4">
                                 <input
                                     type="number"
                                     name={`productDetails.${index}.price`}
@@ -282,13 +360,15 @@ const AddProduct = () => {
                         </div>
                     ))}
 
-                    <button
-                        type="button"
-                        onClick={addProductDetail}
-                        className="mt-4 p-2 bg-blue-500 text-white rounded-md"
-                    >
-                        Thêm Chi Tiết Sản Phẩm
-                    </button>
+                    {showAddDetailButton && (
+                        <button
+                            type="button"
+                            onClick={addProductDetail}
+                            className="mt-4 p-2 bg-blue-500 text-white rounded-md"
+                        >
+                            Thêm Chi Tiết Sản Phẩm
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex justify-center mt-6">
